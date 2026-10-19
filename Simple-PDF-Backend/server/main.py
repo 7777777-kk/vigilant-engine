@@ -29,6 +29,8 @@ JOB_TIMEOUT = int(os.getenv("PDF_JOB_TIMEOUT", "180"))
 DATA_ROOT = Path(os.getenv("PDF_DATA_DIR", str(Path(__file__).parent / "data"))).resolve()
 DATA_ROOT.mkdir(parents=True, exist_ok=True)
 uploads: dict[str, dict] = {}
+transfers: dict[str, dict] = {}
+transfer_locks: dict[str, asyncio.Lock] = {}
 jobs: dict[str, dict] = {}
 tasks: set[asyncio.Task] = set()
 conversion_slots: asyncio.Semaphore | None = None
@@ -52,6 +54,8 @@ def remove_directory(identifier: str) -> None:
 
 def restore_registry() -> None:
     uploads.clear()
+    transfers.clear()
+    transfer_locks.clear()
     jobs.clear()
     for directory in DATA_ROOT.iterdir():
         if not directory.is_dir() or not re.fullmatch(r"[0-9a-f]{32}", directory.name):
@@ -75,14 +79,15 @@ def sweep_expired() -> None:
     now = time.time()
     protected_inputs = {identifier for job in jobs.values() if job["status"] in ("queued", "processing")
                         for identifier in job["fileIds"]}
-    for registry in (uploads, jobs):
+    for registry in (uploads, jobs, transfers):
         for identifier, entry in list(registry.items()):
-            if entry["expiresAt"] > now or identifier in protected_inputs:
+            if entry["expiresAt"] > now or identifier in protected_inputs or entry.get('finalizing'):
                 continue
             if registry is jobs and entry["status"] in ("queued", "processing"):
                 continue
             remove_directory(identifier)
             registry.pop(identifier, None)
+            transfer_locks.pop(identifier, None)
 
 
 async def cleanup_loop() -> None:
@@ -109,7 +114,7 @@ async def lifespan(app: FastAPI):
             pass
 
 
-app = FastAPI(title="Simple PDF API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Simple PDF API", version="1.1.0", lifespan=lifespan)
 
 
 def owner(x_client_token: Annotated[str, Header()] = "") -> str:
@@ -155,6 +160,7 @@ def health():
         capabilities.append({"id": key, **tool, "enabled": enabled,
                              "reason": "" if enabled else "服务器需要安装 LibreOffice"})
     return {"ok": True, "name": "Simple PDF", "maxUploadBytes": MAX_UPLOAD,
+            "cloudTransfer": {"version": 1, "chunkBytes": 256 * 1024},
             "maxPages": 100, "retentionMinutes": TTL // 60, "tools": capabilities}
 
 
@@ -164,8 +170,9 @@ async def upload_file(file: Annotated[UploadFile, File()],
                       x_client_token: Annotated[str, Header()] = ""):
     digest = owner(x_client_token)
     sweep_expired()
-    active = sum(entry["size"] for entry in uploads.values() if entry["owner"] == digest)
-    used = sum(entry["size"] for entry in uploads.values()) + sum(
+    source_entries = list(uploads.values()) + list(transfers.values())
+    active = sum(entry["size"] for entry in source_entries if entry["owner"] == digest)
+    used = sum(entry["size"] for entry in source_entries) + sum(
         sum(file["size"] for file in job.get("result", {}).get("files", [])) for job in jobs.values())
     if active >= 100 * 1024 * 1024 or used >= 1024 * 1024 * 1024:
         raise HTTPException(429, "暂存空间已满，请稍后再试。")
@@ -343,3 +350,7 @@ async def delete_upload(identifier: str, x_client_token: Annotated[str, Header()
         raise HTTPException(409, "文件正在转换，暂不能删除。")
     remove_directory(identifier)
     uploads.pop(identifier)
+
+
+from .cloud_transfer import install as install_cloud_transfer
+install_cloud_transfer(app, globals())
