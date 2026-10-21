@@ -12,6 +12,10 @@
 | python-docx | 1.2.0 | DOCX 验证及测试 | https://github.com/python-openxml/python-docx · MIT |
 | FastAPI | 0.143.0 | API 服务 | https://github.com/fastapi/fastapi · MIT |
 | LibreOffice | 运行环境提供 | DOCX 渲染为 PDF | https://www.libreoffice.org/ · MPL-2.0 / LGPL-3.0+ 等，见发行版许可 |
+| RapidOCR ONNX Runtime | 1.4.4 | 本地中英文扫描文字识别，含检测、方向分类和识别模型 | https://github.com/RapidAI/RapidOCR · Apache-2.0 |
+| ONNX Runtime | 1.23.2 | OCR 模型 CPU 推理 | https://github.com/microsoft/onnxruntime · MIT |
+| PaddleOCR PP-OCR 模型 | RapidOCR 1.4.4 内置版本 | 中英文检测和识别模型来源 | https://github.com/PaddlePaddle/PaddleOCR · Apache-2.0；内置模型哈希见 third_party/licenses/PaddleOCR/models.json |
+| OpenCV | 5.0.0.93 | 图像处理、带边框表格网格检测 | https://github.com/opencv/opencv · Apache-2.0；发行包第三方许可随包保留 |
 
 测试与工具依赖包含 uvicorn、httpx、pytest、ReportLab、Playwright 和 miniprogram-compiler，完整锁定版本见 `server/requirements.lock.txt` 与 `package-lock.json`。
 

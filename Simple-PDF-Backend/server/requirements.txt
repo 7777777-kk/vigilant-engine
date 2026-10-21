@@ -10,3 +10,5 @@ python-docx>=1.1,<2
 httpx>=0.28,<1
 pytest>=8,<10
 reportlab>=4,<5
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.23.2

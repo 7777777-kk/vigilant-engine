@@ -1,0 +1,102 @@
+[
+  {
+    "package": "coloredlogs",
+    "original": "third_party/licenses/coloredlogs/coloredlogs-15.0.1.dist-info/LICENSE.txt",
+    "file": "third_party/ocr_licenses/coloredlogs-b0eec285-LICENSE.txt"
+  },
+  {
+    "package": "humanfriendly",
+    "original": "third_party/licenses/humanfriendly/humanfriendly-10.0.dist-info/LICENSE.txt",
+    "file": "third_party/ocr_licenses/humanfriendly-c947d2c6-LICENSE.txt"
+  },
+  {
+    "package": "mpmath",
+    "original": "third_party/licenses/mpmath/mpmath-1.3.0.dist-info/LICENSE",
+    "file": "third_party/ocr_licenses/mpmath-105bce5d-LICENSE"
+  },
+  {
+    "package": "onnxruntime",
+    "original": "third_party/licenses/onnxruntime/onnxruntime/LICENSE",
+    "file": "third_party/ocr_licenses/onnxruntime-c6e1413b-LICENSE"
+  },
+  {
+    "package": "opencv-python",
+    "original": "third_party/licenses/opencv-python/cv2/LICENSE-3RD-PARTY.txt",
+    "file": "third_party/ocr_licenses/opencv-python-24a71d7b-LICENSE-3RD-PARTY.txt"
+  },
+  {
+    "package": "opencv-python",
+    "original": "third_party/licenses/opencv-python/cv2/LICENSE.txt",
+    "file": "third_party/ocr_licenses/opencv-python-723c8dee-LICENSE.txt"
+  },
+  {
+    "package": "opencv-python",
+    "original": "third_party/licenses/opencv-python/opencv_python-5.0.0.93.dist-info/LICENSE-3RD-PARTY.txt",
+    "file": "third_party/ocr_licenses/opencv-python-a2d00edc-LICENSE-3RD-PARTY.txt"
+  },
+  {
+    "package": "opencv-python",
+    "original": "third_party/licenses/opencv-python/opencv_python-5.0.0.93.dist-info/LICENSE.txt",
+    "file": "third_party/ocr_licenses/opencv-python-ed9195b5-LICENSE.txt"
+  },
+  {
+    "package": "protobuf",
+    "original": "third_party/licenses/protobuf/protobuf-7.36.2.dist-info/LICENSE",
+    "file": "third_party/ocr_licenses/protobuf-c5e47929-LICENSE"
+  },
+  {
+    "package": "pyclipper",
+    "original": "third_party/licenses/pyclipper/pyclipper-1.4.0.dist-info/licenses/LICENSE",
+    "file": "third_party/ocr_licenses/pyclipper-319f8b0f-LICENSE"
+  },
+  {
+    "package": "pyreadline3",
+    "original": "third_party/licenses/pyreadline3/pyreadline3-3.5.6.dist-info/licenses/LICENSE.md",
+    "file": "third_party/ocr_licenses/pyreadline3-2c0c35e8-LICENSE.md"
+  },
+  {
+    "package": "PyYAML",
+    "original": "third_party/licenses/PyYAML/pyyaml-6.0.3.dist-info/licenses/LICENSE",
+    "file": "third_party/ocr_licenses/PyYAML-ea7df2f3-LICENSE"
+  },
+  {
+    "package": "shapely",
+    "original": "third_party/licenses/shapely/shapely-2.1.2.dist-info/licenses/LICENSE.txt",
+    "file": "third_party/ocr_licenses/shapely-0e81a44d-LICENSE.txt"
+  },
+  {
+    "package": "shapely",
+    "original": "third_party/licenses/shapely/shapely-2.1.2.dist-info/licenses/LICENSE_GEOS",
+    "file": "third_party/ocr_licenses/shapely-0c14a525-LICENSE_GEOS"
+  },
+  {
+    "package": "shapely",
+    "original": "third_party/licenses/shapely/shapely-2.1.2.dist-info/licenses/LICENSE_win32",
+    "file": "third_party/ocr_licenses/shapely-6611b23b-LICENSE_win32"
+  },
+  {
+    "package": "six",
+    "original": "third_party/licenses/six/six-1.17.0.dist-info/LICENSE",
+    "file": "third_party/ocr_licenses/six-107e5daf-LICENSE"
+  },
+  {
+    "package": "sympy",
+    "original": "third_party/licenses/sympy/sympy/parsing/latex/LICENSE.txt",
+    "file": "third_party/ocr_licenses/sympy-caed8feb-LICENSE.txt"
+  },
+  {
+    "package": "sympy",
+    "original": "third_party/licenses/sympy/sympy-1.14.0.dist-info/licenses/AUTHORS",
+    "file": "third_party/ocr_licenses/sympy-53f00f46-AUTHORS"
+  },
+  {
+    "package": "sympy",
+    "original": "third_party/licenses/sympy/sympy-1.14.0.dist-info/licenses/LICENSE",
+    "file": "third_party/ocr_licenses/sympy-78ca5fa5-LICENSE"
+  },
+  {
+    "package": "tqdm",
+    "original": "third_party/licenses/tqdm/tqdm-4.70.1.dist-info/licenses/LICENCE",
+    "file": "third_party/ocr_licenses/tqdm-93e91a55-LICENCE"
+  }
+]

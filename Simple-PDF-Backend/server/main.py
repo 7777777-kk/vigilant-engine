@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .engines import TOOLS, inspect_file, libreoffice_path, worker_entry
+from .ocr import capability as ocr_capability
 
 logger = logging.getLogger("simple_pdf")
 MAX_UPLOAD = 20 * 1024 * 1024
@@ -114,7 +115,7 @@ async def lifespan(app: FastAPI):
             pass
 
 
-app = FastAPI(title="Simple PDF API", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="Simple PDF API", version="1.2.0", lifespan=lifespan)
 
 
 def owner(x_client_token: Annotated[str, Header()] = "") -> str:
@@ -160,6 +161,7 @@ def health():
         capabilities.append({"id": key, **tool, "enabled": enabled,
                              "reason": "" if enabled else "服务器需要安装 LibreOffice"})
     return {"ok": True, "name": "Simple PDF", "maxUploadBytes": MAX_UPLOAD,
+            "ocr": ocr_capability(),
             "cloudTransfer": {"version": 1, "chunkBytes": 256 * 1024},
             "maxPages": 100, "retentionMinutes": TTL // 60, "tools": capabilities}
 
@@ -215,6 +217,7 @@ async def upload_file(file: Annotated[UploadFile, File()],
 
 
 class JobOptions(BaseModel):
+    ocrMode: Literal['auto', 'force'] = 'auto'
     pages: str = Field(default="", max_length=600)
     imageFormat: Literal["png", "jpg"] = "png"
     dpi: Literal[96, 144, 200] = 144
@@ -254,7 +257,7 @@ def run_worker(tool: str, inputs: list[dict], options: dict, output_dir: str) ->
 async def process_job(entry: dict, inputs: list[dict], options: dict) -> None:
     assert conversion_slots is not None
     async with conversion_slots:
-        entry.update(status="processing", stage="正在转换文件")
+        entry.update(status="processing", stage="正在识别文字并转换" if entry['tool'] in ('pdf-word', 'pdf-text') else "正在转换文件")
         persist(DATA_ROOT / entry["id"], entry)
         try:
             result = await asyncio.to_thread(run_worker, entry["tool"], inputs, options,

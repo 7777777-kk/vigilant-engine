@@ -18,6 +18,25 @@ MAX_IMAGE_PIXELS = 24_000_000
 MAX_OUTPUT_BYTES = 80 * 1024 * 1024
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
+
+def ocr_text_pages(path: Path, reader, indices: list[int], force: bool = False) -> list[str]:
+    """Detect image-heavy scans even when a small header/logo has native text."""
+    import pymupdf
+    result = []
+    with pymupdf.open(path) as document:
+        for index in indices:
+            page = document[index]
+            text = (reader.pages[index].extract_text() or '').strip()
+            meaningful = sum(char.isalnum() for char in page.get_text())
+            image_heavy = False
+            if meaningful < 200:
+                for image in page.get_images():
+                    if any(rect.get_area() > page.rect.get_area() * .5 for rect in page.get_image_rects(image[0])):
+                        image_heavy = True
+                        break
+            result.append('' if force or image_heavy or meaningful == 0 else text)
+    return result
+
 TOOLS = {
     "pdf-word": {"title": "PDF 转 Word", "accept": ["pdf"], "min": 1, "max": 1},
     "word-pdf": {"title": "Word 转 PDF", "accept": ["docx"], "min": 1, "max": 1},
@@ -239,9 +258,12 @@ def convert(tool: str, inputs: list[dict], options: dict, output_dir: str) -> di
         indices = page_indices(options.get("pages", ""), len(reader.pages))
         count = len(indices)
         if tool == "pdf-word":
-            text_pages = [(reader.pages[index].extract_text() or "").strip() for index in indices]
-            if not any(text_pages):
-                raise ValueError("此 PDF 为扫描件或没有可提取文字。当前未配置 OCR，不能生成可编辑 Word。")
+            text_pages = ocr_text_pages(paths[0], reader, indices, options.get('ocrMode') == 'force')
+            if any(not text for text in text_pages):
+                from .ocr import process_pages
+                output = directory / 'result.docx'
+                warning = process_pages(paths[0], indices, text_pages, output, as_word=True)
+                return _write_manifest(directory, [(output, f'{stem}.docx')], warning, count)
             from pdf2docx import Converter
             output = directory / "result.docx"
             converter = Converter(str(paths[0]))
@@ -254,7 +276,9 @@ def convert(tool: str, inputs: list[dict], options: dict, output_dir: str) -> di
             if not any(p.text.strip() for p in doc.paragraphs) and not any(
                 cell.text.strip() for table in doc.tables for row in table.rows for cell in row.cells
             ):
-                raise ValueError("未能识别出可编辑文字，请使用图片导出或更换 PDF。")
+                from .ocr import process_pages
+                warning = process_pages(paths[0], indices, [''] * len(indices), output, as_word=True)
+                return _write_manifest(directory, [(output, f'{stem}.docx')], warning, count)
             warning = "复杂排版可能变化，请检查表格、分栏和字体。"
             if any(not page for page in text_pages):
                 warning += "部分页面无可提取文字，可能包含扫描图片。"
@@ -281,10 +305,12 @@ def convert(tool: str, inputs: list[dict], options: dict, output_dir: str) -> di
                         archive.write(path, arcname=name)
                 files.append((archive_path, f"{stem}-图片合集.zip"))
         elif tool == "pdf-text":
-            parts = [reader.pages[index].extract_text() or "" for index in indices]
-            if not any(part.strip() for part in parts):
-                raise ValueError("没有可提取文字。扫描件需要 OCR，当前未配置 OCR 服务。")
+            parts = ocr_text_pages(paths[0], reader, indices, options.get('ocrMode') == 'force')
             output = directory / "result.txt"
+            if any(not part.strip() for part in parts):
+                from .ocr import process_pages
+                warning = process_pages(paths[0], indices, parts, output, as_word=False)
+                return _write_manifest(directory, [(output, f'{stem}.txt')], warning, count)
             output.write_text("\n\n".join(parts), encoding="utf-8")
             files = [(output, f"{stem}.txt")]
             if any(not part.strip() for part in parts):
