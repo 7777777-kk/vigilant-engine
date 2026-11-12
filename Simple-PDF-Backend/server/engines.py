@@ -282,6 +282,9 @@ def convert(tool: str, inputs: list[dict], options: dict, output_dir: str) -> di
             warning = "复杂排版可能变化，请检查表格、分栏和字体。"
             if any(not page for page in text_pages):
                 warning += "部分页面无可提取文字，可能包含扫描图片。"
+            from .word_layout import finish_document
+            finish_document(doc)
+            doc.save(output)
             files = [(output, f"{stem}.docx")]
         elif tool == "pdf-image":
             fmt = options.get("imageFormat", "png")

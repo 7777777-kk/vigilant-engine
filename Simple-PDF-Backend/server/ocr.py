@@ -44,7 +44,9 @@ def render_page(path: Path, index: int):
             scale = min(200 / 72, math.sqrt(MAX_OCR_PIXELS / (width * height)))
             bitmap = page.render(scale=scale)
             try:
-                return bitmap.to_pil().convert('RGB')
+                image = bitmap.to_pil().convert('RGB')
+                image.info['pdf_size'] = (width, height)
+                return image
             finally:
                 bitmap.close()
         finally:
@@ -119,7 +121,14 @@ def lines(words: list[dict]) -> list[str]:
     return [' '.join(word['text'] for word in sorted(row[1], key=lambda item: item['x'])) for row in rows]
 
 
-def append_ocr_page(document, words: list[dict], tables: list[dict]):
+def append_ocr_page(document, words: list[dict], tables: list[dict], pixel_width=None, font_size=11):
+    from .word_layout import compact_paragraph, relax_table
+    from docx.shared import Pt
+    def add_text(text):
+        paragraph = document.add_paragraph(text)
+        compact_paragraph(paragraph)
+        for run in paragraph.runs:
+            run.font.size = Pt(font_size)
     assigned = set()
     blocks = []
     for bounds in tables:
@@ -132,7 +141,7 @@ def append_ocr_page(document, words: list[dict], tables: list[dict]):
             if row is not None and col is not None and index not in assigned:
                 cells[row][col].append(word)
                 assigned.add(index)
-        blocks.append((ys[0], 'table', cells))
+        blocks.append((ys[0], 'table', (cells, xs)))
     for index, word in enumerate(words):
         if index not in assigned:
             blocks.append((word['y'], 'text', word))
@@ -142,15 +151,31 @@ def append_ocr_page(document, words: list[dict], tables: list[dict]):
             pending.append(value)
             continue
         for text in lines(pending):
-            document.add_paragraph(text)
+            add_text(text)
         pending = []
+        value, xs = value
         table = document.add_table(rows=len(value), cols=len(value[0]))
         table.style = 'Table Grid'
+        table.autofit = False
+        section = document.sections[-1]
+        usable_width = section.page_width - section.left_margin - section.right_margin
+        table_width = usable_width
+        if pixel_width:
+            table_width = round(usable_width * min(1, (xs[-1] - xs[0]) / pixel_width))
+        for col in range(len(xs)-1):
+            width = round(table_width * (xs[col+1]-xs[col]) / (xs[-1]-xs[0]))
+            table.columns[col].width = width
+            for cell in table.columns[col].cells:
+                cell.width = width
         for row, cells in enumerate(value):
             for col, cell in enumerate(cells):
                 table.cell(row, col).text = '\n'.join(lines(cell))
+                for paragraph in table.cell(row, col).paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(font_size)
+        relax_table(table, compact=True)
     for text in lines(pending):
-        document.add_paragraph(text)
+        add_text(text)
 
 
 def append_native_page(target, source):
@@ -171,6 +196,12 @@ def append_native_page(target, source):
         if element.tag == qn('w:sectPr'):
             continue
         copied = deepcopy(element)
+        # Keep intra-page column sections continuous; page boundaries are owned
+        # by process_pages, not inherited from an embedded single-page document.
+        for properties in copied.xpath('.//w:sectPr'):
+            start = properties.find(qn('w:type'))
+            if start is not None and start.get(qn('w:val')) not in ('continuous', 'nextColumn'):
+                start.set(qn('w:val'), 'continuous')
         for node in copied.iter():
             for key, value in list(node.attrib.items()):
                 if key.startswith('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}') and value in mapping:
@@ -182,6 +213,7 @@ def process_pages(path: Path, indices: list[int], text_pages: list[str], output:
     from docx import Document
     from docx.oxml.ns import qn
     from docx.shared import Pt
+    from .word_layout import begin_page, finish_document
     empty = [i for i, text in zip(indices, text_pages) if not text.strip()]
     if len(empty) > MAX_OCR_PAGES:
         raise ValueError(f'一次最多识别 {MAX_OCR_PAGES} 页扫描件，请在页码范围中分批转换。')
@@ -198,8 +230,6 @@ def process_pages(path: Path, indices: list[int], text_pages: list[str], output:
         for sequence, (index, native_text) in enumerate(zip(indices, text_pages)):
             if time.monotonic() > deadline:
                 raise ValueError('OCR 处理时间较长，请减少页数后分批识别。')
-            if document is not None and sequence:
-                document.add_page_break()
             if native_text.strip():
                 all_text.append(native_text)
                 if document is not None:
@@ -210,10 +240,16 @@ def process_pages(path: Path, indices: list[int], text_pages: list[str], output:
                         converter.convert(str(native_output), pages=[index], multi_processing=False)
                     finally:
                         converter.close()
-                    append_native_page(document, Document(native_output))
+                    native_document = Document(native_output)
+                    begin_page(document, sequence, source_section=native_document.sections[0])
+                    append_native_page(document, native_document)
                 continue
             image = render_page(path, index)
             try:
+                if document is not None:
+                    begin_page(document, sequence, size=image.info.get('pdf_size'))
+                pixel_width = image.width
+                point_scale = (image.info.get('pdf_size') or (595.28, 841.89))[1] / image.height
                 words = recognize(engine, image)
                 tables = ruled_tables(image) if document is not None else []
             finally:
@@ -228,10 +264,13 @@ def process_pages(path: Path, indices: list[int], text_pages: list[str], output:
             low_confidence |= any(word['score'] < .75 for word in words)
             all_text.append('\n'.join(lines(words)))
             if document is not None:
-                append_ocr_page(document, words, tables)
+                heights = sorted((word['bottom'] - word['y']) * point_scale for word in words)
+                font_size = min(11, max(7, heights[len(heights)//2] * .8))
+                append_ocr_page(document, words, tables, pixel_width=pixel_width, font_size=font_size)
     if len(unrecognized) == len(indices):
         raise ValueError('OCR 未识别出文字，请使用更清晰、方向正确的扫描件；手写内容可能无法识别。')
     if document is not None:
+        finish_document(document)
         document.save(output)
     else:
         output.write_text('\n\n'.join(all_text), encoding='utf-8')
